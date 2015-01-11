@@ -1,0 +1,4 @@
+A sample for the factory pattern annotation processor. Compile and run it from command line with
+```
+mvn -q  package exec:java
+```
