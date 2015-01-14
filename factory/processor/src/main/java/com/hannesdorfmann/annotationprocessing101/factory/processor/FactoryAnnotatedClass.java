@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2015 Hannes Dorfmann
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.hannesdorfmann.annotationprocessing101.factory.processor;
 
 import com.hannesdorfmann.annotationprocessing101.factory.annotation.Factory;
@@ -11,14 +26,14 @@ import org.apache.commons.lang3.StringUtils;
  *
  * @author Hannes Dorfmann
  */
-public class FactoryItem {
+public class FactoryAnnotatedClass {
 
   private TypeElement annotatedClassElement;
-  private String qualifiedSuperClassName;
-  private String simpleTypeName;
+  private String qualifiedGroupClassName;
+  private String simpleFactoryGroupName;
   private String id;
 
-  public FactoryItem(TypeElement classElement) throws IllegalArgumentException {
+  public FactoryAnnotatedClass(TypeElement classElement) throws IllegalArgumentException {
     this.annotatedClassElement = classElement;
     Factory annotation = classElement.getAnnotation(Factory.class);
     id = annotation.id();
@@ -32,13 +47,13 @@ public class FactoryItem {
     // Get the full QualifiedTypeName
     try {
       Class<?> clazz = annotation.type();
-      qualifiedSuperClassName = clazz.getCanonicalName();
-      simpleTypeName = clazz.getSimpleName();
+      qualifiedGroupClassName = clazz.getCanonicalName();
+      simpleFactoryGroupName = clazz.getSimpleName();
     } catch (MirroredTypeException mte) {
       DeclaredType classTypeMirror = (DeclaredType) mte.getTypeMirror();
       TypeElement classTypeElement = (TypeElement) classTypeMirror.asElement();
-      qualifiedSuperClassName = classTypeElement.getQualifiedName().toString();
-      simpleTypeName = classTypeElement.getSimpleName().toString();
+      qualifiedGroupClassName = classTypeElement.getQualifiedName().toString();
+      simpleFactoryGroupName = classTypeElement.getSimpleName().toString();
     }
   }
 
@@ -55,24 +70,23 @@ public class FactoryItem {
    *
    * @return qualified name
    */
-  public String getQualifiedSuperClassName() {
-    return qualifiedSuperClassName;
+  public String getQualifiedFactoryGroupName() {
+    return qualifiedGroupClassName;
   }
-
 
   /**
    * Get the simple name of the type specified in  {@link Factory#type()}.
    *
    * @return qualified name
    */
-  public String getSimpleSuperClassName() {
-    return simpleTypeName;
+  public String getSimpleFactoryGroupName() {
+    return simpleFactoryGroupName;
   }
 
   /**
    * The original element that was annotated with @Factory
    */
-  public TypeElement getAnnotatedClassElement() {
+  public TypeElement getTypeElement() {
     return annotatedClassElement;
   }
 }

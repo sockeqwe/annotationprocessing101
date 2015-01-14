@@ -14,27 +14,25 @@
  * limitations under the License.
  */
 
-package com.hannesdorfmann.annotationprocessing101.factory.annotation;
+package com.hannesdorfmann.annotationprocessing101.factory.processor;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.hannesdorfmann.annotationprocessing101.factory.annotation.Factory;
 
 /**
- * Annotation to indicate classes that are part of a certain factory
+ * This Exception will be thrown to indicate that the the given {@link Factory#id()} is already used
+ * by another {@link FactoryAnnotatedClass}
  *
  * @author Hannes Dorfmann
  */
-@Target(ElementType.TYPE) @Retention(RetentionPolicy.CLASS) public @interface Factory {
+public class IdAlreadyUsedException extends Exception {
 
-  /**
-   * The name of the factory
-   */
-  Class type();
+  private FactoryAnnotatedClass existing;
 
-  /**
-   * The identifier for determining which item should be instantiated
-   */
-  String id();
+  public IdAlreadyUsedException(FactoryAnnotatedClass existing) {
+    this.existing = existing;
+  }
+
+  public FactoryAnnotatedClass getExisting() {
+    return existing;
+  }
 }

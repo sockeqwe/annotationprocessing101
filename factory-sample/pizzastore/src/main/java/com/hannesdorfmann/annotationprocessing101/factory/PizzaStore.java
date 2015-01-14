@@ -13,7 +13,6 @@ public class PizzaStore {
 
   public Meal order(String mealName) {
     return factory.create(mealName);
-    //return null;
   }
 
   private static String readConsole() throws IOException {

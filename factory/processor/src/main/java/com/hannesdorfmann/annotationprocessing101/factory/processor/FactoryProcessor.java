@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2015 Hannes Dorfmann
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.hannesdorfmann.annotationprocessing101.factory.processor;
 
 import com.google.auto.service.AutoService;
@@ -36,7 +52,9 @@ import javax.tools.Diagnostic;
   private Elements elementUtils;
   private Filer filer;
   private Messager messager;
-  private Map<String, FactoryClass> factoryClasses = new LinkedHashMap<String, FactoryClass>();
+  private Map<String, FactoryGroupedClasses> factoryClasses =
+      new LinkedHashMap<String, FactoryGroupedClasses>();
+
 
   @Override public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -57,13 +75,12 @@ import javax.tools.Diagnostic;
   }
 
   /**
-   * Checks if the annotated element is a class, has an empty constructor and the required super
-   * class
+   * Checks if the annotated element observes our rules
    */
-  private boolean isValidClass(FactoryItem item) {
+  private boolean isValidClass(FactoryAnnotatedClass item) {
 
     // Cast to TypeElement, has more type specific methods
-    TypeElement classElement = item.getAnnotatedClassElement();
+    TypeElement classElement = item.getTypeElement();
 
     if (!classElement.getModifiers().contains(Modifier.PUBLIC)) {
       error(classElement, "The class %s is not public.",
@@ -79,13 +96,14 @@ import javax.tools.Diagnostic;
     }
 
     // Check inheritance: Class must be childclass as specified in @Factory.type();
-    TypeElement superClassElement = elementUtils.getTypeElement(item.getQualifiedSuperClassName());
+    TypeElement superClassElement =
+        elementUtils.getTypeElement(item.getQualifiedFactoryGroupName());
     if (superClassElement.getKind() == ElementKind.INTERFACE) {
       // Check interface implemented
       if (!classElement.getInterfaces().contains(superClassElement.asType())) {
         error(classElement, "The class %s annotated with @%s must implement the interface %s",
             classElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
-            item.getQualifiedSuperClassName());
+            item.getQualifiedFactoryGroupName());
         return false;
       }
     } else {
@@ -98,11 +116,11 @@ import javax.tools.Diagnostic;
           // Basis class (java.lang.Object) reached, so exit
           error(classElement, "The class %s annotated with @%s must inherit from %s",
               classElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
-              item.getQualifiedSuperClassName());
+              item.getQualifiedFactoryGroupName());
           return false;
         }
 
-        if (superClassType.toString().equals(item.getQualifiedSuperClassName())) {
+        if (superClassType.toString().equals(item.getQualifiedFactoryGroupName())) {
           // Required super class found
           break;
         }
@@ -139,54 +157,56 @@ import javax.tools.Diagnostic;
       if (annotatedElement.getKind() != ElementKind.CLASS) {
         error(annotatedElement, "Only classes can be annotated with @%s",
             Factory.class.getSimpleName());
-        return false; // Exit processing
+        return true; // Exit processing
       }
 
       // We can cast it, because we know that it of ElementKind.CLASS
       TypeElement typeElement = (TypeElement) annotatedElement;
 
       try {
-        FactoryItem factoryItem = new FactoryItem(typeElement); // throws IllegalArgumentException
+        FactoryAnnotatedClass annotatedClass =
+            new FactoryAnnotatedClass(typeElement); // throws IllegalArgumentException
 
-        if (!isValidClass(factoryItem)) {
-          return false; // Error message printed, exit processing
+        if (!isValidClass(annotatedClass)) {
+          return true; // Error message printed, exit processing
         }
 
         // Everything is fine, so try to add
-        FactoryClass factoryClass = factoryClasses.get(factoryItem.getQualifiedSuperClassName());
+        FactoryGroupedClasses factoryClass =
+            factoryClasses.get(annotatedClass.getQualifiedFactoryGroupName());
         if (factoryClass == null) {
-          factoryClass = new FactoryClass();
-          factoryClasses.put(factoryItem.getQualifiedSuperClassName(), factoryClass);
+          String qualifiedGroupName = annotatedClass.getQualifiedFactoryGroupName();
+          factoryClass = new FactoryGroupedClasses(qualifiedGroupName);
+          factoryClasses.put(qualifiedGroupName, factoryClass);
         }
 
-        // Check if id is conflicting with another @Factory annotated class with the same id
-        FactoryItem alreadyFound = factoryClass.add(factoryItem);
-        if (alreadyFound != null) {
-          error(annotatedElement,
-              "Conflict: The class %s is annotated with @%s with id ='%s' but %s already uses the same id",
-              typeElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
-              alreadyFound.getAnnotatedClassElement().getQualifiedName().toString());
-
-          return false;
-        }
+        // Checks if id is conflicting with another @Factory annotated class with the same id
+        factoryClass.add(annotatedClass);
       } catch (IllegalArgumentException e) {
         // Another approach of handling exceptions and printing error messages
         error(typeElement, e.getMessage());
+        return true;
+      } catch (IdAlreadyUsedException e) {
+        FactoryAnnotatedClass existing = e.getExisting();
+        // Alredy existing
+        error(annotatedElement,
+            "Conflict: The class %s is annotated with @%s with id ='%s' but %s already uses the same id",
+            typeElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
+            existing.getTypeElement().getQualifiedName().toString());
+        return true;
       }
     }
 
-    // All elements processed, everything is fine, so generate Factory code
-    if (roundEnv.processingOver()) {
-      try {
-        for (FactoryClass factoryClass : factoryClasses.values()) {
-          factoryClass.generateCode(elementUtils, filer);
-        }
-      } catch (IOException e) {
-        error(null, e.getMessage());
+    try {
+      for (FactoryGroupedClasses factoryClass : factoryClasses.values()) {
+        factoryClass.generateCode(elementUtils, filer);
       }
+      factoryClasses.clear();
+    } catch (IOException e) {
+      error(null, e.getMessage());
     }
 
-    return false;
+    return true;
   }
 
   /**
@@ -198,7 +218,7 @@ import javax.tools.Diagnostic;
    * to
    * replace them
    */
-  private void error(Element e, String msg, Object... args) {
+  public void error(Element e, String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args), e);
   }
 }

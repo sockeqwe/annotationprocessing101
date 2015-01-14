@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2015 Hannes Dorfmann
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.hannesdorfmann.annotationprocessing101.factory.processor;
 
 import com.squareup.javawriter.JavaWriter;
@@ -14,13 +30,13 @@ import javax.lang.model.util.Elements;
 import javax.tools.JavaFileObject;
 
 /**
- * This class holds all {@link FactoryItem}s that belongs to one factory. In other words,
+ * This class holds all {@link FactoryAnnotatedClass}s that belongs to one factory. In other words,
  * this class holds a list with all @Factory annotated classes. This class also checks if the id of
  * each @Factory annotated class is unique.
  *
  * @author Hannes Dorfmann
  */
-public class FactoryClass {
+public class FactoryGroupedClasses {
 
   /**
    * Will be added to the name of the generated factory class
@@ -29,27 +45,27 @@ public class FactoryClass {
 
   private String qualifiedClassName;
 
-  private Map<String, FactoryItem> itemsMap = new LinkedHashMap<String, FactoryItem>();
+  private Map<String, FactoryAnnotatedClass> itemsMap =
+      new LinkedHashMap<String, FactoryAnnotatedClass>();
+
+  public FactoryGroupedClasses(String qualifiedClassName) {
+    this.qualifiedClassName = qualifiedClassName;
+  }
 
   /**
-   * Adds an item to this factory. This method will check if another item with the same id has
-   * already present. In this case, the already existing one is returned and you should make an
-   * error message out of it.
+   * Adds an annotated class to this factory.
+   *
+   * @throws IdAlreadyUsedException if another annotated class  with the same id is
+   * already present.
    */
-  public FactoryItem add(FactoryItem toInsert) {
+  public void add(FactoryAnnotatedClass toInsert) throws IdAlreadyUsedException {
 
-    // Save the qualified name once
-    if (qualifiedClassName == null) {
-      qualifiedClassName = toInsert.getQualifiedSuperClassName();
-    }
-
-    FactoryItem existing = itemsMap.get(toInsert.getId());
+    FactoryAnnotatedClass existing = itemsMap.get(toInsert.getId());
     if (existing != null) {
-      return existing;
+      throw new IdAlreadyUsedException(existing);
     }
 
     itemsMap.put(toInsert.getId(), toInsert);
-    return null;
   }
 
   /**
@@ -83,10 +99,9 @@ public class FactoryClass {
     jw.emitStatement("throw new IllegalArgumentException(\"id is null!\")");
     jw.endControlFlow();
 
-    for (FactoryItem item : itemsMap.values()) {
+    for (FactoryAnnotatedClass item : itemsMap.values()) {
       jw.beginControlFlow("if (\"%s\".equals(id))", item.getId());
-      jw.emitStatement("return new %s()",
-          item.getAnnotatedClassElement().getQualifiedName().toString());
+      jw.emitStatement("return new %s()", item.getTypeElement().getQualifiedName().toString());
       jw.endControlFlow();
       jw.emitEmptyLine();
     }
