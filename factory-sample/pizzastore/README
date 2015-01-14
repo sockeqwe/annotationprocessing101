@@ -1,4 +1,4 @@
-A sample for the factory pattern annotation processor. Compile and run it from command line with
+A sample for the factory pattern annotation processor. First you have to compile and install  FactoryProcessor to your local maven repositroy (see factory folder). Afterwards you can compile and run this sample from command line with
 ```
 mvn -q  package exec:java
 ```
