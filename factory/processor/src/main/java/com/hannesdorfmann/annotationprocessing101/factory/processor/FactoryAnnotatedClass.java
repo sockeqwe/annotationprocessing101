@@ -33,15 +33,18 @@ public class FactoryAnnotatedClass {
   private String simpleFactoryGroupName;
   private String id;
 
-  public FactoryAnnotatedClass(TypeElement classElement) throws IllegalArgumentException {
+  /**
+   * @throws ProcessingException if id() from annotation is null
+   */
+  public FactoryAnnotatedClass(TypeElement classElement) throws ProcessingException {
     this.annotatedClassElement = classElement;
     Factory annotation = classElement.getAnnotation(Factory.class);
     id = annotation.id();
 
     if (StringUtils.isEmpty(id)) {
-      throw new IllegalArgumentException(
-          String.format("id() in @%s for class %s is null or empty! that's not allowed",
-              Factory.class.getSimpleName(), classElement.getQualifiedName().toString()));
+      throw new ProcessingException(classElement,
+          "id() in @%s for class %s is null or empty! that's not allowed",
+          Factory.class.getSimpleName(), classElement.getQualifiedName().toString());
     }
 
     // Get the full QualifiedTypeName

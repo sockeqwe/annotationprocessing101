@@ -55,7 +55,6 @@ import javax.tools.Diagnostic;
   private Map<String, FactoryGroupedClasses> factoryClasses =
       new LinkedHashMap<String, FactoryGroupedClasses>();
 
-
   @Override public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
     typeUtils = processingEnv.getTypeUtils();
@@ -77,22 +76,21 @@ import javax.tools.Diagnostic;
   /**
    * Checks if the annotated element observes our rules
    */
-  private boolean isValidClass(FactoryAnnotatedClass item) {
+  private void checkValidClass(FactoryAnnotatedClass item) throws ProcessingException {
 
     // Cast to TypeElement, has more type specific methods
     TypeElement classElement = item.getTypeElement();
 
     if (!classElement.getModifiers().contains(Modifier.PUBLIC)) {
-      error(classElement, "The class %s is not public.",
+      throw new ProcessingException(classElement, "The class %s is not public.",
           classElement.getQualifiedName().toString());
-      return false;
     }
 
     // Check if it's an abstract class
     if (classElement.getModifiers().contains(Modifier.ABSTRACT)) {
-      error(classElement, "The class %s is abstract. You can't annotate abstract classes with @%",
+      throw new ProcessingException(classElement,
+          "The class %s is abstract. You can't annotate abstract classes with @%",
           classElement.getQualifiedName().toString(), Factory.class.getSimpleName());
-      return false;
     }
 
     // Check inheritance: Class must be childclass as specified in @Factory.type();
@@ -101,10 +99,10 @@ import javax.tools.Diagnostic;
     if (superClassElement.getKind() == ElementKind.INTERFACE) {
       // Check interface implemented
       if (!classElement.getInterfaces().contains(superClassElement.asType())) {
-        error(classElement, "The class %s annotated with @%s must implement the interface %s",
+        throw new ProcessingException(classElement,
+            "The class %s annotated with @%s must implement the interface %s",
             classElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
             item.getQualifiedFactoryGroupName());
-        return false;
       }
     } else {
       // Check subclassing
@@ -114,10 +112,10 @@ import javax.tools.Diagnostic;
 
         if (superClassType.getKind() == TypeKind.NONE) {
           // Basis class (java.lang.Object) reached, so exit
-          error(classElement, "The class %s annotated with @%s must inherit from %s",
+          throw new ProcessingException(classElement,
+              "The class %s annotated with @%s must inherit from %s",
               classElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
               item.getQualifiedFactoryGroupName());
-          return false;
         }
 
         if (superClassType.toString().equals(item.getQualifiedFactoryGroupName())) {
@@ -137,39 +135,37 @@ import javax.tools.Diagnostic;
         if (constructorElement.getParameters().size() == 0 && constructorElement.getModifiers()
             .contains(Modifier.PUBLIC)) {
           // Found an empty constructor
-          return true;
+          return;
         }
       }
     }
 
     // No empty constructor found
-    error(classElement, "The class %s must provide an public empty default constructor",
+    throw new ProcessingException(classElement,
+        "The class %s must provide an public empty default constructor",
         classElement.getQualifiedName().toString());
-    return false;
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
-    for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Factory.class)) {
+    try {
 
-      // Check if a class has been annotated with @Factory
-      if (annotatedElement.getKind() != ElementKind.CLASS) {
-        error(annotatedElement, "Only classes can be annotated with @%s",
-            Factory.class.getSimpleName());
-        return true; // Exit processing
-      }
+      // Scan classes
+      for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Factory.class)) {
 
-      // We can cast it, because we know that it of ElementKind.CLASS
-      TypeElement typeElement = (TypeElement) annotatedElement;
-
-      try {
-        FactoryAnnotatedClass annotatedClass =
-            new FactoryAnnotatedClass(typeElement); // throws IllegalArgumentException
-
-        if (!isValidClass(annotatedClass)) {
-          return true; // Error message printed, exit processing
+        // Check if a class has been annotated with @Factory
+        if (annotatedElement.getKind() != ElementKind.CLASS) {
+          throw new ProcessingException(annotatedElement, "Only classes can be annotated with @%s",
+              Factory.class.getSimpleName());
         }
+
+        // We can cast it, because we know that it of ElementKind.CLASS
+        TypeElement typeElement = (TypeElement) annotatedElement;
+
+        FactoryAnnotatedClass annotatedClass = new FactoryAnnotatedClass(typeElement);
+
+        checkValidClass(annotatedClass);
 
         // Everything is fine, so try to add
         FactoryGroupedClasses factoryClass =
@@ -182,26 +178,15 @@ import javax.tools.Diagnostic;
 
         // Checks if id is conflicting with another @Factory annotated class with the same id
         factoryClass.add(annotatedClass);
-      } catch (IllegalArgumentException e) {
-        // Another approach of handling exceptions and printing error messages
-        error(typeElement, e.getMessage());
-        return true;
-      } catch (IdAlreadyUsedException e) {
-        FactoryAnnotatedClass existing = e.getExisting();
-        // Alredy existing
-        error(annotatedElement,
-            "Conflict: The class %s is annotated with @%s with id ='%s' but %s already uses the same id",
-            typeElement.getQualifiedName().toString(), Factory.class.getSimpleName(),
-            existing.getTypeElement().getQualifiedName().toString());
-        return true;
       }
-    }
 
-    try {
+      // Generate code
       for (FactoryGroupedClasses factoryClass : factoryClasses.values()) {
         factoryClass.generateCode(elementUtils, filer);
       }
       factoryClasses.clear();
+    } catch (ProcessingException e) {
+      error(e.getElement(), e.getMessage());
     } catch (IOException e) {
       error(null, e.getMessage());
     }
@@ -214,11 +199,8 @@ import javax.tools.Diagnostic;
    *
    * @param e The element which has caused the error. Can be null
    * @param msg The error message
-   * @param args if the error messge cotains %s, %d etc. placeholders this arguments will be used
-   * to
-   * replace them
    */
-  public void error(Element e, String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args), e);
+  public void error(Element e, String msg) {
+    messager.printMessage(Diagnostic.Kind.ERROR, msg, e);
   }
 }

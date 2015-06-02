@@ -16,6 +16,7 @@
 
 package com.hannesdorfmann.annotationprocessing101.factory.processor;
 
+import com.hannesdorfmann.annotationprocessing101.factory.annotation.Factory;
 import com.squareup.javawriter.JavaWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -55,14 +56,19 @@ public class FactoryGroupedClasses {
   /**
    * Adds an annotated class to this factory.
    *
-   * @throws IdAlreadyUsedException if another annotated class  with the same id is
+   * @throws ProcessingException if another annotated class with the same id is
    * already present.
    */
-  public void add(FactoryAnnotatedClass toInsert) throws IdAlreadyUsedException {
+  public void add(FactoryAnnotatedClass toInsert) throws ProcessingException {
 
     FactoryAnnotatedClass existing = itemsMap.get(toInsert.getId());
     if (existing != null) {
-      throw new IdAlreadyUsedException(existing);
+
+      // Alredy existing
+      throw new ProcessingException(toInsert.getTypeElement(),
+          "Conflict: The class %s is annotated with @%s with id ='%s' but %s already uses the same id",
+          toInsert.getTypeElement().getQualifiedName().toString(), Factory.class.getSimpleName(),
+          toInsert.getId(), existing.getTypeElement().getQualifiedName().toString());
     }
 
     itemsMap.put(toInsert.getId(), toInsert);
