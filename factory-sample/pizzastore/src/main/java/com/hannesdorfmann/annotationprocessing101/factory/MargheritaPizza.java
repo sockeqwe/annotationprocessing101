@@ -23,7 +23,7 @@ import com.hannesdorfmann.annotationprocessing101.factory.annotation.Factory;
  */
 
 @Factory(
-    id = "Magherita",
+    id = "Margherita",
     type = Meal.class
 )
 public class MargheritaPizza implements Meal {
