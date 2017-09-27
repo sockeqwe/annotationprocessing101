@@ -64,9 +64,9 @@ import javax.tools.Diagnostic;
   }
 
   @Override public Set<String> getSupportedAnnotationTypes() {
-    Set<String> annotataions = new LinkedHashSet<String>();
-    annotataions.add(Factory.class.getCanonicalName());
-    return annotataions;
+    Set<String> annotations = new LinkedHashSet<String>();
+    annotations.add(Factory.class.getCanonicalName());
+    return annotations;
   }
 
   @Override public SourceVersion getSupportedSourceVersion() {
