@@ -64,7 +64,7 @@ public class FactoryGroupedClasses {
     FactoryAnnotatedClass existing = itemsMap.get(toInsert.getId());
     if (existing != null) {
 
-      // Alredy existing
+      // Already existing
       throw new ProcessingException(toInsert.getTypeElement(),
           "Conflict: The class %s is annotated with @%s with id ='%s' but %s already uses the same id",
           toInsert.getTypeElement().getQualifiedName().toString(), Factory.class.getSimpleName(),
