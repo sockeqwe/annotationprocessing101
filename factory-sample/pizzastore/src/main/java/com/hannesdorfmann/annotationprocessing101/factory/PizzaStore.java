@@ -25,7 +25,7 @@ import java.io.InputStreamReader;
  */
 public class PizzaStore {
 
-  private MealFactory factory = new MealFactory();
+  private final MealFactory factory = new MealFactory();
 
   public Meal order(String mealName) {
     return factory.create(mealName);
