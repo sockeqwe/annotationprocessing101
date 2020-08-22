@@ -79,7 +79,7 @@ public class FactoryGroupedClasses {
     String factoryClassName = superClassName.getSimpleName() + SUFFIX;
     String qualifiedFactoryClassName = qualifiedClassName + SUFFIX;
     PackageElement pkg = elementUtils.getPackageOf(superClassName);
-    String packageName = pkg.isUnnamed() ? null : pkg.getQualifiedName().toString();
+    String packageName = pkg.isUnnamed() ? "" : pkg.getQualifiedName().toString();
 
     MethodSpec.Builder method = MethodSpec.methodBuilder("create")
         .addModifiers(Modifier.PUBLIC)
